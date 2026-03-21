@@ -1,24 +1,43 @@
-import { Bell, Search, LogOut, User, Menu } from 'lucide-react';
+import { Bell, Search, LogOut, User, Menu, Package, XCircle, Info } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useAdminAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
-import { getInitials } from '../../lib/utils';
+import { useNotificationStore, startNotificationListener } from '../../store/notificationStore';
+import { getInitials, cn, formatRelativeTime } from '../../lib/utils';
 
 export default function Topbar() {
   const { admin, signOut } = useAdminAuthStore();
   const toggleCollapsed = useUIStore((s) => s.toggleCollapsed);
+  const { notifications, unreadCount, markAllRead } = useNotificationStore();
+  
   const [profileOpen, setProfileOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+  
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // Start real-time DB listener on mount
+    startNotificationListener();
+  }, []);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setProfileOpen(false);
       }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false);
+      }
     }
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const handleNotifClick = () => {
+    setNotifOpen(!notifOpen);
+    if (!notifOpen) markAllRead();
+  };
 
   const roleLabel = admin?.role === 'super_admin'
     ? 'Super Admin'
@@ -51,10 +70,61 @@ export default function Topbar() {
       {/* Right */}
       <div className="flex items-center gap-3">
         {/* Notifications */}
-        <button className="relative p-2 rounded-lg text-slate-500 hover:text-slate-700 hover:bg-slate-50 transition-colors">
-          <Bell size={20} />
-          <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full"></span>
-        </button>
+        <div className="relative" ref={notifRef}>
+          <button 
+            onClick={handleNotifClick}
+            className={cn(
+              "p-2 rounded-xl text-slate-500 hover:text-slate-700 transition-all",
+              notifOpen ? "bg-slate-100 text-pink-600 shadow-inner" : "hover:bg-slate-50"
+            )}
+          >
+            <Bell size={20} />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-white animate-pulse">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+
+          {notifOpen && (
+            <div className="dropdown w-80 max-h-[480px] overflow-hidden flex flex-col fade-in right-0">
+              <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                <span className="text-xs font-black text-slate-600 uppercase tracking-widest">Recent Alerts</span>
+                <span className="text-[10px] text-slate-400 font-bold tracking-tighter uppercase">{notifications.length} Total</span>
+              </div>
+              <div className="overflow-y-auto flex-1 divide-y divide-slate-50">
+                {notifications.length === 0 ? (
+                  <div className="p-10 text-center flex flex-col items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center text-slate-300">
+                      <Bell size={24} />
+                    </div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-relaxed">Everything is quiet<br/>no alerts right now</p>
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div key={n.id} className="p-4 hover:bg-slate-50 transition-colors cursor-default group">
+                      <div className="flex gap-3">
+                        <div className={cn(
+                          "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-110",
+                          n.type === 'order' ? 'bg-emerald-50 text-emerald-600' :
+                          n.type === 'cancel' ? 'bg-red-50 text-red-500' : 'bg-slate-50 text-slate-500'
+                        )}>
+                          {n.type === 'order' ? <Package size={18} /> : 
+                           n.type === 'cancel' ? <XCircle size={18} /> : <Info size={18} />}
+                        </div>
+                        <div className="space-y-1 overflow-hidden">
+                          <p className="text-xs font-black text-slate-800 tracking-tight leading-tight">{n.title}</p>
+                          <p className="text-[11px] text-slate-500 leading-normal line-clamp-2">{n.message}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">{formatRelativeTime(n.created_at)}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Profile */}
         <div className="relative" ref={dropdownRef}>

@@ -36,17 +36,28 @@ export default function OrderDetailsPage() {
 
     setUpdating(true);
     try {
+      const currentPayment = Array.isArray((order as any).payment) ? (order as any).payment[0] : (order as any).payment;
+      
       await supabase.from('orders').update({ status: newStatus, updated_at: new Date().toISOString() }).eq('id', order.id);
+      
+      // Automatic Payment Status for COD on Delivery
+      if (newStatus === 'delivered' && currentPayment?.method === 'cod' && currentPayment?.status !== 'paid') {
+        await supabase.from('payments').update({ 
+          status: 'paid', 
+          paid_at: new Date().toISOString() 
+        }).eq('id', currentPayment.id);
+      }
+
       await supabase.from('order_status_history').insert({
         order_id: order.id,
         status: newStatus,
-        note: `Status changed to ${newStatus}`,
+        note: `Status changed to ${newStatus}${newStatus === 'delivered' && currentPayment?.method === 'cod' ? ' (Payment automatic paid)' : ''}`,
       });
 
       // Send notification if delivered
-      if (newStatus === 'delivered' && order.user_id) {
+      if (newStatus === 'delivered' && (order as any).user_id) {
         await supabase.from('notifications').insert({
-          user_id: order.user_id,
+          user_id: (order as any).user_id,
           type: 'order',
           title: 'Order Delivered',
           body: `Your order #${order.order_number} has been delivered successfully. Please leave a review!`,
@@ -54,8 +65,9 @@ export default function OrderDetailsPage() {
           is_read: false
         });
       }
-      setOrder({ ...order, status: newStatus as any });
+      
       toast.success(`Order status updated to ${getOrderStatusLabel(newStatus)}`);
+      fetchOrder(); // Refresh data to show updated payment status
     } catch {
       toast.error('Failed to update status');
     } finally {
@@ -274,29 +286,34 @@ export default function OrderDetailsPage() {
                   </div>
                 )}
               </div>
-              {payment.status === 'pending_verification' && (
+              {/* Manual verification only for mobile banking, OR for COD if stuck in delivered */}
+              {( (payment.status === 'pending_verification' && payment.method !== 'cod') || 
+                 (payment.method === 'cod' && order.status === 'delivered' && payment.status !== 'paid') ) && (
                 <div className="flex gap-2 mt-4">
                   <button
                     onClick={async () => {
                       await supabase.from('payments').update({ status: 'paid', paid_at: new Date().toISOString() }).eq('id', payment.id);
-                      updateStatus('confirmed');
-                      toast.success('Payment verified');
+                      if (order.status !== 'delivered') updateStatus('confirmed');
+                      toast.success('Payment marked as paid');
+                      fetchOrder();
                     }}
                     className="btn btn-primary btn-sm flex-1"
                   >
                     <CheckCircle size={14} />
-                    Verify
+                    Mark as Paid
                   </button>
-                  <button
-                    onClick={async () => {
-                      await supabase.from('payments').update({ status: 'failed' }).eq('id', payment.id);
-                      toast.success('Payment rejected');
-                      fetchOrder();
-                    }}
-                    className="btn btn-danger btn-sm flex-1"
-                  >
-                    Reject
-                  </button>
+                  {payment.method !== 'cod' && (
+                    <button
+                      onClick={async () => {
+                        await supabase.from('payments').update({ status: 'failed' }).eq('id', payment.id);
+                        toast.success('Payment rejected');
+                        fetchOrder();
+                      }}
+                      className="btn btn-danger btn-sm flex-1"
+                    >
+                      Reject
+                    </button>
+                  )}
                 </div>
               )}
             </div>
