@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import { Shield, Truck, Layout, Facebook, Mail, UserPlus, UserCheck, UserX } from 'lucide-react';
-import { adminConfig } from '../../../config/adminConfig';
 import { supabase } from '../../../lib/supabase';
 import { cn } from '../../../lib/utils';
 import toast from 'react-hot-toast';
@@ -16,10 +15,46 @@ export default function SettingsPage() {
   ];
 
   // Shipping State
-  const [shippingZones, setShippingZones] = useState(
-    adminConfig.shipping.zones.filter(z => z.name !== 'Chittagong').map(z => ({ ...z }))
-  );
-  const [freeShippingAbove, setFreeShippingAbove] = useState<number>(adminConfig.shipping.free_shipping_above);
+  const [shippingZones, setShippingZones] = useState<any[]>([]);
+  const [freeShippingAbove, setFreeShippingAbove] = useState<number>(1000);
+  const [fetchingShipping, setFetchingShipping] = useState(true);
+  const [savingShipping, setSavingShipping] = useState(false);
+  const [shippingConfigId, setShippingConfigId] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetchShipping() {
+      try {
+        const { data, error } = await supabase.from('app_config').select('id, value').eq('key', 'shipping_config').single();
+        if (!error && data?.value) {
+          setShippingConfigId(data.id);
+          setShippingZones(data.value.zones || []);
+          setFreeShippingAbove(data.value.free_shipping_above || 1000);
+        } else {
+          // Fallback default
+          setShippingZones([
+            { name: 'Inside Dhaka', base_fee: 60, estimated_days: '1-2' },
+            { name: 'Outside Dhaka', base_fee: 120, estimated_days: '3-5' }
+          ]);
+        }
+      } catch (err) {
+        setShippingZones([
+          { name: 'Inside Dhaka', base_fee: 60, estimated_days: '1-2' },
+          { name: 'Outside Dhaka', base_fee: 120, estimated_days: '3-5' }
+        ]);
+      } finally {
+        setFetchingShipping(false);
+      }
+    }
+    fetchShipping();
+  }, []);
+
+  const handleAddZone = () => {
+    setShippingZones([...shippingZones, { name: 'New Zone', base_fee: 0, estimated_days: '' }]);
+  };
+
+  const handleRemoveZone = (index: number) => {
+    setShippingZones(shippingZones.filter((_, i) => i !== index));
+  };
 
   const handleUpdateZone = (index: number, field: string, value: any) => {
     const newZones = [...shippingZones];
@@ -27,8 +62,27 @@ export default function SettingsPage() {
     setShippingZones(newZones);
   };
 
-  const handleSaveShipping = () => {
-    toast.success('Shipping settings saved successfully');
+  const handleSaveShipping = async () => {
+    setSavingShipping(true);
+    try {
+      const payload: any = {
+        key: 'shipping_config',
+        value: { zones: shippingZones, free_shipping_above: freeShippingAbove },
+        updated_at: new Date().toISOString()
+      };
+      
+      if (shippingConfigId) payload.id = shippingConfigId;
+
+      const { data, error } = await supabase.from('app_config').upsert(payload, { onConflict: 'key' }).select('id').single();
+
+      if (error) throw error;
+      if (data) setShippingConfigId(data.id);
+      toast.success('Shipping settings saved successfully');
+    } catch (err: any) {
+      toast.error('Failed to save: ' + (err.message || 'Unknown error'));
+    } finally {
+      setSavingShipping(false);
+    }
   };
 
   // Footer State
@@ -41,9 +95,39 @@ export default function SettingsPage() {
     twitter_url: 'https://twitter.com/mashamart',
     youtube_url: 'https://youtube.com/mashamart',
   });
+  const [savingFooter, setSavingFooter] = useState(false);
+  const [footerConfigId, setFooterConfigId] = useState<string | null>(null);
 
-  const handleSaveFooter = () => {
-    toast.success('Footer settings updated successfully');
+  useEffect(() => {
+    async function fetchFooter() {
+      const { data, error } = await supabase.from('app_config').select('id, value').eq('key', 'footer_config').single();
+      if (!error && data) {
+        setFooterConfig(data.value);
+        setFooterConfigId(data.id);
+      }
+    }
+    fetchFooter();
+  }, []);
+
+  const handleSaveFooter = async () => {
+    setSavingFooter(true);
+    try {
+      const payload: any = {
+        key: 'footer_config',
+        value: footerConfig,
+        updated_at: new Date().toISOString()
+      };
+      if (footerConfigId) payload.id = footerConfigId;
+
+      const { data, error } = await supabase.from('app_config').upsert(payload, { onConflict: 'key' }).select('id').single();
+      if (error) throw error;
+      if (data) setFooterConfigId(data.id);
+      toast.success('Footer settings updated successfully');
+    } catch (err: any) {
+      toast.error('Failed to update: ' + err.message);
+    } finally {
+      setSavingFooter(false);
+    }
   };
 
   // Legal Pages Content State
@@ -53,9 +137,39 @@ export default function SettingsPage() {
     shipping_policy: 'We ship across Bangladesh within 2-5 business days...',
     return_refund: 'Returns are accepted within 7 days of delivery for eligible items...',
   });
+  const [savingPages, setSavingPages] = useState(false);
+  const [legalPagesId, setLegalPagesId] = useState<string | null>(null);
 
-  const handleSavePages = () => {
-    toast.success('Legal content updated successfully');
+  useEffect(() => {
+    async function fetchPages() {
+      const { data, error } = await supabase.from('app_config').select('id, value').eq('key', 'legal_pages').single();
+      if (!error && data) {
+        setLegalPages(data.value);
+        setLegalPagesId(data.id);
+      }
+    }
+    fetchPages();
+  }, []);
+
+  const handleSavePages = async () => {
+    setSavingPages(true);
+    try {
+      const payload: any = {
+        key: 'legal_pages',
+        value: legalPages,
+        updated_at: new Date().toISOString()
+      };
+      if (legalPagesId) payload.id = legalPagesId;
+
+      const { data, error } = await supabase.from('app_config').upsert(payload, { onConflict: 'key' }).select('id').single();
+      if (error) throw error;
+      if (data) setLegalPagesId(data.id);
+      toast.success('Legal content updated successfully');
+    } catch (err: any) {
+      toast.error('Failed to update: ' + err.message);
+    } finally {
+      setSavingPages(false);
+    }
   };
 
   // Admin Management State
@@ -113,22 +227,34 @@ export default function SettingsPage() {
             <div className="card p-6 space-y-6">
               <div className="flex items-center justify-between border-b pb-3 border-slate-100">
                 <h3 className="text-sm font-semibold text-slate-800">Shipping Zones</h3>
-                <span className="text-[10px] text-slate-400 font-medium uppercase tracking-wider">Configured for Masha Mart</span>
+                <button 
+                  onClick={handleAddZone}
+                  className="text-pink-600 text-[10px] font-bold uppercase tracking-wider hover:underline"
+                >
+                  + Add New Area
+                </button>
               </div>
               <div className="space-y-4">
-                {shippingZones.map((zone: any, idx: number) => (
-                  <div key={zone.name} className="p-4 rounded-xl border border-slate-100 bg-slate-50/50 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-bold text-slate-700">{zone.name}</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
+                {fetchingShipping ? <div className="spinner-sm mx-auto" /> : shippingZones.map((zone: any, idx: number) => (
+                  <div key={idx} className="p-4 rounded-xl border border-slate-100 bg-slate-50/50 space-y-3 relative group">
+                    <button 
+                      onClick={() => handleRemoveZone(idx)}
+                      className="absolute top-4 right-4 text-slate-300 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                    >
+                      <UserX size={14} />
+                    </button>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pb-2 border-b border-slate-100/50">
                       <div>
-                        <label className="form-label text-[11px]">Base Fee (৳)</label>
-                        <input type="number" value={zone.base_fee} onChange={(e) => handleUpdateZone(idx, 'base_fee', parseInt(e.target.value) || 0)} className="form-input" />
+                        <label className="form-label text-[10px]">Area Name</label>
+                        <input type="text" value={zone.name} onChange={(e) => handleUpdateZone(idx, 'name', e.target.value)} className="form-input text-xs" />
                       </div>
                       <div>
-                        <label className="form-label text-[11px]">Est. Delivery Days</label>
-                        <input type="text" value={zone.estimated_days} onChange={(e) => handleUpdateZone(idx, 'estimated_days', e.target.value)} className="form-input" />
+                        <label className="form-label text-[10px]">Base Fee (৳)</label>
+                        <input type="number" value={zone.base_fee} onChange={(e) => handleUpdateZone(idx, 'base_fee', parseInt(e.target.value) || 0)} className="form-input text-xs" />
+                      </div>
+                      <div>
+                        <label className="form-label text-[10px]">Est. Delivery Days</label>
+                        <input type="text" value={zone.estimated_days} onChange={(e) => handleUpdateZone(idx, 'estimated_days', e.target.value)} className="form-input text-xs" />
                       </div>
                     </div>
                   </div>
@@ -140,7 +266,15 @@ export default function SettingsPage() {
                   <input type="number" value={freeShippingAbove} onChange={(e) => setFreeShippingAbove(parseInt(e.target.value) || 0)} className="form-input" />
                 </div>
               </div>
-              <div className="flex justify-end pt-4"><button onClick={handleSaveShipping} className="btn btn-primary">Save Shipping Config</button></div>
+              <div className="flex justify-end pt-4">
+                <button 
+                  onClick={handleSaveShipping} 
+                  className="btn btn-primary px-12"
+                  disabled={savingShipping}
+                >
+                  {savingShipping ? <div className="spinner-sm" /> : 'Save All Shipping Config'}
+                </button>
+              </div>
             </div>
           )}
 
@@ -163,7 +297,15 @@ export default function SettingsPage() {
                   <div><label className="form-label">Youtube</label><input type="url" value={footerConfig.youtube_url} onChange={e => setFooterConfig(f => ({ ...f, youtube_url: e.target.value }))} className="form-input" /></div>
                 </div>
               </div>
-              <div className="flex justify-end pt-4"><button onClick={handleSaveFooter} className="btn btn-primary px-8">Save Footer Settings</button></div>
+              <div className="flex justify-end pt-4">
+                <button 
+                  onClick={handleSaveFooter} 
+                  className="btn btn-primary px-12"
+                  disabled={savingFooter}
+                >
+                  {savingFooter ? <div className="spinner-sm" /> : 'Save Footer Settings'}
+                </button>
+              </div>
             </div>
           )}
 
@@ -178,7 +320,15 @@ export default function SettingsPage() {
                   <div><label className="form-label font-bold">Return Policy</label><textarea value={legalPages.return_refund} onChange={e => setLegalPages(p => ({ ...p, return_refund: e.target.value }))} className="form-input" rows={4} /></div>
                 </div>
               </div>
-              <div className="flex justify-end pt-4"><button onClick={handleSavePages} className="btn btn-primary px-8">Update Legal Pages</button></div>
+              <div className="flex justify-end pt-4">
+                <button 
+                  onClick={handleSavePages} 
+                  className="btn btn-primary px-12"
+                  disabled={savingPages}
+                >
+                  {savingPages ? <div className="spinner-sm" /> : 'Update Legal Pages'}
+                </button>
+              </div>
             </div>
           )}
 

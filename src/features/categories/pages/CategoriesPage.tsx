@@ -5,6 +5,7 @@ import { supabase } from '../../../lib/supabase';
 import { cn } from '../../../lib/utils';
 import type { Category } from '../../../types';
 import toast from 'react-hot-toast';
+import ImageUpload from '../../../components/ui/ImageUpload';
 
 export default function CategoriesPage() {
   const queryClient = useQueryClient();
@@ -118,7 +119,16 @@ export default function CategoriesPage() {
                   {parents.filter(p => p.id !== editing?.id).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </div>
-              <div><label className="form-label">Image URL</label><input type="text" value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} className="form-input" placeholder="https://..." /></div>
+              <div>
+                <ImageUpload 
+                  value={form.image_url} 
+                  onChange={url => setForm(f => ({ ...f, image_url: url }))} 
+                  label="Category Image" 
+                  bucket="categories" 
+                  folder="category-images"
+                  aspectRatio="aspect-square"
+                />
+              </div>
             </div>
             <div className="modal-footer"><button onClick={() => setModalOpen(false)} className="btn btn-secondary">Cancel</button><button onClick={handleSave} className="btn btn-primary">Save</button></div>
           </div>

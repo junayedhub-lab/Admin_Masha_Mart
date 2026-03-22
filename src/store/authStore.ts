@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { supabase } from '../lib/supabase';
 import type { AdminUser } from '../types';
 
+// Module-level guard to prevent multiple auth listeners
+let adminAuthListenerRegistered = false;
+
 interface AdminAuthState {
   admin: AdminUser | null;
   loading: boolean;
@@ -12,12 +15,15 @@ interface AdminAuthState {
   signOut: () => Promise<void>;
 }
 
-export const useAdminAuthStore = create<AdminAuthState>((set) => ({
+export const useAdminAuthStore = create<AdminAuthState>((set, get) => ({
   admin: null,
   loading: false,
   initialized: false,
 
   initialize: async () => {
+    // Prevent re-initialization if already done
+    if (get().initialized) return;
+
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -45,26 +51,29 @@ export const useAdminAuthStore = create<AdminAuthState>((set) => ({
         }
       }
 
-      // Listen for auth changes
-      supabase.auth.onAuthStateChange(async (_event: any, session: any) => {
-        if (session?.user) {
-          const { data: adminData } = await supabase
-            .from('admin_users')
-            .select('*')
-            .eq('id', session.user.id)
-            .eq('is_active', true)
-            .single();
+      // Only register the auth listener once for the lifetime of the app
+      if (!adminAuthListenerRegistered) {
+        adminAuthListenerRegistered = true;
+        supabase.auth.onAuthStateChange(async (_event: any, session: any) => {
+          if (session?.user) {
+            const { data: adminData } = await supabase
+              .from('admin_users')
+              .select('*')
+              .eq('id', session.user.id)
+              .eq('is_active', true)
+              .single();
 
-          if (adminData) {
-            set({ admin: adminData as AdminUser });
+            if (adminData) {
+              set({ admin: adminData as AdminUser });
+            } else {
+              await supabase.auth.signOut();
+              set({ admin: null });
+            }
           } else {
-            await supabase.auth.signOut();
             set({ admin: null });
           }
-        } else {
-          set({ admin: null });
-        }
-      });
+        });
+      }
     } finally {
       set({ initialized: true });
     }

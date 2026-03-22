@@ -104,6 +104,15 @@
     animation: spin 0.7s linear infinite;
   }
 
+  .spinner-sm {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--color-border);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+
   @keyframes spin {
     to { transform: rotate(360deg); }
   }

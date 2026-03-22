@@ -4,6 +4,7 @@ import { supabase } from '../../../lib/supabase';
 import { cn } from '../../../lib/utils';
 import type { Banner } from '../../../types';
 import toast from 'react-hot-toast';
+import ImageUpload from '../../../components/ui/ImageUpload';
 
 export default function BannersPage() {
   const [activeTab, setActiveTab] = useState<'top' | 'bottom'>('top');
@@ -51,7 +52,6 @@ export default function BannersPage() {
       }); 
     } else { 
       setEditing(null); 
-      // Default order based on tab
       const defaultOrder = activeTab === 'top' ? 0 : 3;
       setForm({ 
         title: '', 
@@ -198,8 +198,17 @@ export default function BannersPage() {
               </div>
 
               <div><label className="form-label">Banner Title</label><input type="text" value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} className="form-input" /></div>
-              <div><label className="form-label">Image URL *</label><input type="text" value={form.image_url} onChange={e => setForm(f => ({ ...f, image_url: e.target.value }))} className="form-input" placeholder="https://..." /></div>
-              
+              <div>
+                <ImageUpload 
+                  value={form.image_url} 
+                  onChange={url => setForm(f => ({ ...f, image_url: url }))} 
+                  label="Banner Image *" 
+                  bucket="banners" 
+                  folder="banner-images"
+                  aspectRatio="aspect-[3/1]"
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="form-label">Precise Order</label>

@@ -12,10 +12,8 @@ export default function ProtectedRoute({ children, requiredRole }: Props) {
   const { admin, initialized, initialize } = useAdminAuthStore();
 
   useEffect(() => {
-    if (!initialized) {
-      initialize();
-    }
-  }, [initialized, initialize]);
+    initialize();
+  }, []); // Run once on mount — initialize() has its own guard against re-initialization
 
   if (!initialized) {
     return (

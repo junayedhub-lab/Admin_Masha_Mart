@@ -1,14 +1,16 @@
 import { Bell, Search, LogOut, User, Menu, Package, XCircle, Info } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAdminAuthStore } from '../../store/authStore';
 import { useUIStore } from '../../store/uiStore';
-import { useNotificationStore, startNotificationListener } from '../../store/notificationStore';
+import { useNotificationStore, startNotificationListenerWithCleanup } from '../../store/notificationStore';
 import { getInitials, cn, formatRelativeTime } from '../../lib/utils';
 
 export default function Topbar() {
   const { admin, signOut } = useAdminAuthStore();
   const toggleCollapsed = useUIStore((s) => s.toggleCollapsed);
   const { notifications, unreadCount, markAllRead } = useNotificationStore();
+  const navigate = useNavigate();
   
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
@@ -17,8 +19,9 @@ export default function Topbar() {
   const notifRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Start real-time DB listener on mount
-    startNotificationListener();
+    // startNotificationListener now returns a cleanup function
+    const cleanup = startNotificationListenerWithCleanup();
+    return cleanup;
   }, []);
 
   useEffect(() => {
@@ -102,7 +105,16 @@ export default function Topbar() {
                   </div>
                 ) : (
                   notifications.map((n) => (
-                    <div key={n.id} className="p-4 hover:bg-slate-50 transition-colors cursor-default group">
+                    <div 
+                      key={n.id} 
+                      onClick={() => {
+                        setNotifOpen(false);
+                        if (n.type === 'order' && (n as any).data?.order_id) {
+                          navigate(`/orders/${(n as any).data.order_id}`);
+                        }
+                      }}
+                      className="p-4 hover:bg-slate-50 transition-colors cursor-pointer group"
+                    >
                       <div className="flex gap-3">
                         <div className={cn(
                           "w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm transition-transform group-hover:scale-110",

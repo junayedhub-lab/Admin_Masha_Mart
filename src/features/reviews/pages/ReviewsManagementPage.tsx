@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
-import { Star, CheckCircle, XCircle, Trash2, MessageSquare } from 'lucide-react';
+import { Star, CheckCircle, XCircle, Trash2, MessageSquare, Award } from 'lucide-react';
 import { formatDateTime } from '../../../lib/utils';
 import toast from 'react-hot-toast';
 
@@ -39,6 +39,21 @@ export default function ReviewsManagementPage() {
       toast.success('Review status updated');
     },
     onError: () => toast.error('Failed to update review status')
+  });
+
+  const updateFeaturedMutation = useMutation({
+    mutationFn: async ({ id, is_featured }: { id: string; is_featured: boolean }) => {
+      const { error } = await supabase
+        .from('reviews')
+        .update({ is_featured })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-reviews'] });
+      toast.success('Featured status updated');
+    },
+    onError: () => toast.error('Failed to update featured status')
   });
 
   const deleteMutation = useMutation({
@@ -98,6 +113,7 @@ export default function ReviewsManagementPage() {
                   <th>Rating</th>
                   <th>Review</th>
                   <th>Status</th>
+                  <th>Featured</th>
                   <th>Date</th>
                   <th>Actions</th>
                 </tr>
@@ -145,6 +161,15 @@ export default function ReviewsManagementPage() {
                       <span className={`badge text-[10px] ${review.is_approved ? 'badge-success' : 'badge-warning'}`}>
                         {review.is_approved ? 'Approved' : 'Pending'}
                       </span>
+                    </td>
+                    <td>
+                      <button 
+                        onClick={() => updateFeaturedMutation.mutate({ id: review.id, is_featured: !review.is_featured })}
+                        className={`btn btn-ghost btn-icon transition-all ${review.is_featured ? 'text-amber-500 bg-amber-50 shadow-sm' : 'text-slate-300 hover:text-amber-400'}`}
+                        title={review.is_featured ? 'Remove from Featured' : 'Mark as Featured'}
+                      >
+                        <Award size={18} fill={review.is_featured ? "currentColor" : "none"} />
+                      </button>
                     </td>
                     <td className="text-[10px] text-slate-400">
                       {formatDateTime(review.created_at)}

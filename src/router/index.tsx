@@ -12,6 +12,7 @@ import CustomersListPage from '../features/customers/pages/CustomersListPage';
 import CouponsPage from '../features/marketing/pages/CouponsPage';
 import FlashSalesPage from '../features/marketing/pages/FlashSalesPage';
 import BannersPage from '../features/marketing/pages/BannersPage';
+import SitePagesPage from '../features/marketing/pages/SitePagesPage';
 import ReviewsManagementPage from '../features/reviews/pages/ReviewsManagementPage';
 import SalesReportPage from '../features/reports/pages/SalesReportPage';
 import SupportPage from '../features/support/pages/SupportPage';
@@ -43,6 +44,7 @@ export const router = createBrowserRouter([
       { path: 'marketing/coupons', element: <CouponsPage /> },
       { path: 'marketing/flash-sales', element: <FlashSalesPage /> },
       { path: 'marketing/banners', element: <BannersPage /> },
+      { path: 'marketing/pages', element: <SitePagesPage /> },
       { path: 'reports/sales', element: <SalesReportPage /> },
       { path: 'support', element: <SupportPage /> },
       { path: 'settings/app', element: <SettingsPage /> },

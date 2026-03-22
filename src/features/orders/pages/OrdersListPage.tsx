@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Search, Eye, ShoppingCart } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { formatCurrency, formatRelativeTime, formatDateTime } from '../../../lib/utils';
@@ -10,8 +10,26 @@ import type { Order } from '../../../types';
 
 export default function OrdersListPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+
+  useEffect(() => {
+    const channel = supabase
+      .channel('orders-realtime-list')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['orders'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
 
   const { data: orders = [], isLoading: loading } = useQuery({
     queryKey: ['orders'],

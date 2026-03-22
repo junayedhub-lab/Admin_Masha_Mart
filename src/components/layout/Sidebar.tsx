@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { useUIStore } from '../../store/uiStore';
-import { adminConfig } from '../../config/adminConfig';
 
 const navItems = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/dashboard' },
@@ -19,6 +18,7 @@ const navItems = [
     label: 'Marketing',
     icon: Tag,
     children: [
+      { label: 'Site Pages', icon: LayoutDashboard, path: '/marketing/pages' },
       { label: 'Coupons', path: '/marketing/coupons' },
       { label: 'Flash Sales', icon: Zap, path: '/marketing/flash-sales' },
       { label: 'Banners', icon: Image, path: '/marketing/banners' },
@@ -41,19 +41,17 @@ export default function Sidebar() {
       )}
       style={{ width: collapsed ? 72 : 256 }}
     >
-      {/* Logo */}
       <div className="flex items-center h-16 px-4 border-b border-white/5">
         <div className="flex items-center gap-3 overflow-hidden">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-bold text-sm flex-shrink-0"
-            style={{ background: 'linear-gradient(135deg, #E91E63, #FF6F00)' }}
-          >
-            M
-          </div>
+          <img 
+            src="/logo.png" 
+            alt="Admin Logo" 
+            className="w-10 h-10 rounded-xl shadow-lg border border-white/10" 
+          />
           {!collapsed && (
             <div className="slide-in-left">
-              <h1 className="text-white font-bold text-sm leading-tight">{adminConfig.brand.app_name}</h1>
-              <p className="text-[10px] text-slate-400">Admin Panel</p>
+              <h1 className="text-white font-black text-sm leading-tight tracking-tighter uppercase">Masha<span className="text-rose-500">Mart</span></h1>
+              <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">Admin Panel</p>
             </div>
           )}
         </div>

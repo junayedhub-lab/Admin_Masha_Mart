@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Save, ImagePlus, X } from 'lucide-react';
+import { ArrowLeft, Save, ImagePlus, X, Loader2, Upload } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { generateSlug } from '../../../lib/utils';
 import type { Category } from '../../../types';
@@ -12,6 +12,7 @@ export default function ProductFormPage() {
   const isEdit = !!id;
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
 
   const [form, setForm] = useState({
@@ -88,6 +89,37 @@ export default function ProductFormPage() {
     const url = prompt('Enter image URL:');
     if (url) {
       setForm(f => ({ ...f, images: [...f.images, url] }));
+    }
+  }
+
+  async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploading(true);
+      
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+      const filePath = `product-images/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('products')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('products')
+        .getPublicUrl(filePath);
+
+      setForm(f => ({ ...f, images: [...f.images, publicUrl] }));
+      toast.success('Image uploaded successfully');
+    } catch (error: any) {
+      console.error('Error uploading image:', error);
+      toast.error(error.message || 'File upload failed');
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -346,13 +378,34 @@ export default function ProductFormPage() {
                 )}
               </div>
             ))}
+            
+            {/* File Upload Button */}
+            <div className="relative aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-1.5 text-slate-400 hover:border-pink-300 hover:text-pink-500 transition-all group overflow-hidden bg-slate-50/30">
+              {uploading ? (
+                <Loader2 className="animate-spin text-pink-500" size={24} />
+              ) : (
+                <>
+                  <Upload size={20} className="group-hover:scale-110 transition-transform" />
+                  <span className="text-[10px] font-medium">Upload Image</span>
+                </>
+              )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handleImageUpload}
+                disabled={uploading}
+                className="absolute inset-0 opacity-0 cursor-pointer disabled:cursor-not-allowed"
+              />
+            </div>
+
+            {/* URL Input Button */}
             <button
               type="button"
               onClick={addImageUrl}
-              className="aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-1.5 text-slate-400 hover:border-pink-300 hover:text-pink-500 transition-colors"
+              className="aspect-square rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center gap-1.5 text-slate-400 hover:border-pink-300 hover:text-pink-500 transition-colors bg-slate-50/30"
             >
               <ImagePlus size={20} />
-              <span className="text-[10px]">Add Image</span>
+              <span className="text-[10px] font-medium">Add URL</span>
             </button>
           </div>
         </div>
